@@ -160,9 +160,9 @@ namespace JustinCredible.GalagaEmu
 
         /**
          * The disassembly annotations to be used by the interactive debugger when Debug=true. It is
-         * a map of memory addresses to string annotation values.
+         * a map of memory addresses to string annotation values per CPU.
          */
-        public Dictionary<UInt16, String> Annotations { get; set; }
+        public Dictionary<CPUIdentifier, Dictionary<UInt16, String>> Annotations { get; set; }
 
         #endregion
 

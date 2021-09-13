@@ -70,7 +70,9 @@ namespace JustinCredible.GalagaEmu.CLI
             var debugOption = command.Option("-d|--debug", "Run in debug mode; enables internal statistics and logs useful when debugging.", CommandOptionType.NoValue);
             var breakOption = command.Option("-b|--break", "Used with debug, will break at the given address and allow single stepping opcode execution (e.g. --break 0x0248)", CommandOptionType.MultipleValue);
             var reverseStepOption = command.Option("-rvs|--reverse-step", "Used with debug, allows for single stepping in reverse to rewind opcode execution.", CommandOptionType.NoValue);
-            var annotationsPathOption = command.Option("-a|--annotations", "Used with debug, a path to a text file containing memory address annotations for interactive debugging (line format: 0x1234 .... ; Annotation)", CommandOptionType.SingleValue);
+            var annotationsCpu1PathOption = command.Option("-a1|--annotations-cpu1", "Used with debug, a path to a text file containing memory address annotations for interactive debugging (line format: 1234: .... ; Annotation) for CPU1", CommandOptionType.SingleValue);
+            var annotationsCpu2PathOption = command.Option("-a2|--annotations-cpu2", "Used with debug, a path to a text file containing memory address annotations for interactive debugging (line format: 1234: .... ; Annotation) for CPU1", CommandOptionType.SingleValue);
+            var annotationsCpu3PathOption = command.Option("-a3|--annotations-cpu3", "Used with debug, a path to a text file containing memory address annotations for interactive debugging (line format: 1234: .... ; Annotation) for CPU1", CommandOptionType.SingleValue);
 
             command.OnExecute(() =>
             {
@@ -124,7 +126,9 @@ namespace JustinCredible.GalagaEmu.CLI
                     }
 
                     config.ReverseStep = reverseStepOption.HasValue();
-                    config.AnnotationsFilePath = annotationsPathOption.HasValue() ? annotationsPathOption.Value() : null;
+                    config.AnnotationsCpu1FilePath = annotationsCpu1PathOption.HasValue() ? annotationsCpu1PathOption.Value() : null;
+                    config.AnnotationsCpu2FilePath = annotationsCpu2PathOption.HasValue() ? annotationsCpu2PathOption.Value() : null;
+                    config.AnnotationsCpu3FilePath = annotationsCpu3PathOption.HasValue() ? annotationsCpu3PathOption.Value() : null;
                 }
 
                 Emulator.Start(config);

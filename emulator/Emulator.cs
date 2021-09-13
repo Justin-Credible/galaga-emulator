@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using Newtonsoft.Json;
@@ -133,21 +134,41 @@ namespace JustinCredible.GalagaEmu
                 if (config.ReverseStep)
                     _game.ReverseStepEnabled = true;
 
-                if (!String.IsNullOrWhiteSpace(config.AnnotationsFilePath))
+                var annotations = new Dictionary<CPUIdentifier, Dictionary<UInt16, string>>();
+
+                var annotationPaths = new Dictionary<CPUIdentifier, string>()
                 {
-                    if (!File.Exists(config.AnnotationsFilePath))
-                        throw new Exception($"Could not locate an annotations file at path {config.AnnotationsFilePath}");
+                    { CPUIdentifier.CPU1_MainController, config.AnnotationsCpu1FilePath },
+                    { CPUIdentifier.CPU2_GameHelper, config.AnnotationsCpu2FilePath },
+                    { CPUIdentifier.CPU3_SoundProcessor, config.AnnotationsCpu3FilePath },
+                };
+
+                foreach (var kvp in annotationPaths)
+                {
+                    var cpuID = kvp.Key;
+                    var path = kvp.Value;
+
+                    if (String.IsNullOrWhiteSpace(path))
+                        continue;
+
+                    if (!File.Exists(path))
+                    {
+                        Console.WriteLine($"WARNING: Could not locate an annotations file for CPU{(int)cpuID} at path {path}");
+                        continue;
+                    }
 
                     try
                     {
-                        var annotations = Annotations.ParseFile(config.AnnotationsFilePath);
-                        _game.Annotations = annotations;
+                        var annotationsForCpu = Annotations.ParseFile(path);
+                        annotations[cpuID] = annotationsForCpu;
                     }
                     catch (Exception ex)
                     {
                         throw new Exception($"Error parsing annotations file.", ex);
                     }
                 }
+
+                _game.Annotations = annotations;
             }
 
             #endregion

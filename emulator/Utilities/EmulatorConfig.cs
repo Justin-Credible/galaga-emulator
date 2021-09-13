@@ -14,6 +14,8 @@ namespace JustinCredible.GalagaEmu
         public bool Debug { get; set; }
         public List<UInt16> Breakpoints { get; set; }
         public bool ReverseStep { get; set; }
-        public string AnnotationsFilePath { get; set; }
+        public string AnnotationsCpu1FilePath { get; set; }
+        public string AnnotationsCpu2FilePath { get; set; }
+        public string AnnotationsCpu3FilePath { get; set; }
     }
 }

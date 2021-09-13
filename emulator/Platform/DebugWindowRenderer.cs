@@ -180,7 +180,8 @@ namespace JustinCredible.GalagaEmu
 
             if (state == DebuggerState.Breakpoint)
             {
-                var disassembly = Disassembler.FormatDisassemblyForDisplay(cpu.Registers.PC, cpu.Memory, 16, 16, showAnnotatedDisassembly ? pcb.Annotations : null);
+                var annotations = pcb.Annotations != null && pcb.Annotations.ContainsKey(cpuID) ? pcb.Annotations[cpuID] : null;
+                var disassembly = Disassembler.FormatDisassemblyForDisplay(cpu.Registers.PC, cpu.Memory, 16, 16, showAnnotatedDisassembly ? annotations : null);
 
                 var disassemblyLines = disassembly.Split(Environment.NewLine);
 
