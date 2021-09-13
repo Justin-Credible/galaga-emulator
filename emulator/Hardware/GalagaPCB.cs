@@ -130,6 +130,11 @@ namespace JustinCredible.GalagaEmu
          */
         public List<UInt16> BreakAtAddresses { get; set; } = new List<ushort>();
 
+        // TODO: Add proper support to the CLI and debugger for these.
+        public List<UInt16> BreakAtAddressesCPU1 { get; set; } = new List<ushort>() { 0x0066, 0x0038 };
+        public List<UInt16> BreakAtAddressesCPU2 { get; set; } = new List<ushort>();
+        public List<UInt16> BreakAtAddressesCPU3 { get; set; } = new List<ushort>();
+
         /**
          * When Debug=true, allows for single reverse-stepping in the interactive debugging console.
          */
@@ -305,6 +310,10 @@ namespace JustinCredible.GalagaEmu
             if (_thread == null)
                 throw new Exception("Emulator cannot be stopped because it wasn't running.");
 
+            #if DEBUG
+            Console.WriteLine("GalagaPCB - Stop requested.");
+            #endif
+
             _cancelled = true;
         }
 
@@ -313,6 +322,10 @@ namespace JustinCredible.GalagaEmu
          */
         public void Pause()
         {
+            #if DEBUG
+            Console.WriteLine("GalagaPCB - Pause requested.");
+            #endif
+
             _paused = true;
         }
 
@@ -321,6 +334,10 @@ namespace JustinCredible.GalagaEmu
          */
         public void UnPause()
         {
+            #if DEBUG
+            Console.WriteLine("GalagaPCB - UnPause requested.");
+            #endif
+
             _paused = false;
         }
 
@@ -332,6 +349,10 @@ namespace JustinCredible.GalagaEmu
         {
             if (!Debug)
                 return;
+
+            #if DEBUG
+            Console.WriteLine("GalagaPCB - Break requested.");
+            #endif
 
             _singleStepping = true;
 
@@ -350,6 +371,10 @@ namespace JustinCredible.GalagaEmu
         {
             if (!Debug || !_isWaitingForInteractiveDebugger)
                 return;
+
+            #if DEBUG
+            Console.WriteLine("GalagaPCB - Continue requested.");
+            #endif
 
             // Handle continue vs single step; if we're continuing then we want to release
             // the single step mode and continue until the next conditional breakpoint.
@@ -372,6 +397,10 @@ namespace JustinCredible.GalagaEmu
             /*
             if (!Debug && !ReverseStepEnabled)
                 throw new Exception("Debug feature: reverse stepping is not enabled.");
+
+            #if DEBUG
+            Console.WriteLine("GalagaPCB - Reverse step requested.");
+            #endif
 
             var state = _executionHistory[_executionHistory.Count - 1];
             _executionHistory.RemoveAt(_executionHistory.Count - 1);
@@ -596,6 +625,7 @@ namespace JustinCredible.GalagaEmu
                         #if DEBUG
                         Console.WriteLine(String.Format("'IRQ1: main CPU (CPU1) irq enable/acknowledge' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
                         #endif
+                        _cpu1.InterruptsEnabled = true;
                         break;
                     case 0x6821:
                         // IRQ2: motion CPU (CPU2) irq enable/acknowledge
@@ -603,6 +633,7 @@ namespace JustinCredible.GalagaEmu
                         #if DEBUG
                         Console.WriteLine(String.Format("'IRQ2: motion CPU (CPU2) irq enable/acknowledge' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
                         #endif
+                        _cpu2.InterruptsEnabled = true;
                         break;
                     case 0x6822:
                         // NMION: sound CPU (CPU3) nmi enable
@@ -610,6 +641,7 @@ namespace JustinCredible.GalagaEmu
                         #if DEBUG
                         Console.WriteLine(String.Format("'NMION: sound CPU (CPU3) nmi enable' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
                         #endif
+                        _cpu3.InterruptsEnabled = true;
                         break;
                     case 0x6823:
                         // RESET: reset sub and sound CPU, and 5xXX chips on CPU board
@@ -891,8 +923,59 @@ namespace JustinCredible.GalagaEmu
                 _addressHistory.RemoveAt(0);
 
             // See if we need to break based on a given address.
+
+            // First check the shared breakpoint list.
+
             if (BreakAtAddresses.Contains(_cpu1.Registers.PC))
+            {
+                #if DEBUG
+                Console.WriteLine(String.Format("Shared breakpoint list: PC for CPU1 is 0x{0:X4}; requesting single step.", _cpu1.Registers.PC));
+                #endif
                 _singleStepping = true;
+            }
+
+            if (BreakAtAddresses.Contains(_cpu2.Registers.PC))
+            {
+                #if DEBUG
+                Console.WriteLine(String.Format("Shared breakpoint list: PC for CPU2 is 0x{0:X4}; requesting single step.", _cpu2.Registers.PC));
+                #endif
+                _singleStepping = true;
+            }
+
+            if (BreakAtAddresses.Contains(_cpu3.Registers.PC))
+            {
+                #if DEBUG
+                Console.WriteLine(String.Format("Shared breakpoint list: PC for CPU3 is 0x{0:X4}; requesting single step.", _cpu3.Registers.PC));
+                #endif
+                _singleStepping = true;
+            }
+
+            // Next check the breakpoint list specific to each CPU.
+            // TODO: Remove the above and only have a list per CPU?
+
+            if (BreakAtAddressesCPU1.Contains(_cpu1.Registers.PC))
+            {
+                #if DEBUG
+                Console.WriteLine(String.Format("CPU1 breakpoint list: PC for CPU1 is 0x{0:X4}; requesting single step.", _cpu1.Registers.PC));
+                #endif
+                _singleStepping = true;
+            }
+
+            if (BreakAtAddressesCPU2.Contains(_cpu2.Registers.PC))
+            {
+                #if DEBUG
+                Console.WriteLine(String.Format("CPU2 breakpoint list: PC for CPU2 is 0x{0:X4}; requesting single step.", _cpu2.Registers.PC));
+                #endif
+                _singleStepping = true;
+            }
+
+            if (BreakAtAddressesCPU3.Contains(_cpu3.Registers.PC))
+            {
+                #if DEBUG
+                Console.WriteLine(String.Format("CPU3 breakpoint list: PC for CPU3 is 0x{0:X4}; requesting single step.", _cpu3.Registers.PC));
+                #endif
+                _singleStepping = true;
+            }
 
             // If we need to break, print out the CPU state and wait for a keypress.
             if (_singleStepping)
