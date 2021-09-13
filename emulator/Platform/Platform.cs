@@ -196,10 +196,22 @@ namespace JustinCredible.GalagaEmu
                                 else
                                 {
                                     if (sdlEvent.window.windowEvent == SDL.SDL_WindowEventID.SDL_WINDOWEVENT_FOCUS_GAINED)
+                                    {
+                                        #if DEBUG
+                                        Console.WriteLine("SDL_WINDOWEVENT_FOCUS_GAINED event fired; but we're in a debug build so we will not set ShouldUnPause = true.");
+                                        #else
                                         tickEventArgs.ShouldUnPause = true;
+                                        #endif
+                                    }
 
                                     if (sdlEvent.window.windowEvent == SDL.SDL_WindowEventID.SDL_WINDOWEVENT_FOCUS_LOST)
+                                    {
+                                        #if DEBUG
+                                        Console.WriteLine("SDL_WINDOWEVENT_FOCUS_GAINED event fired; but we're in a debug build so we will not set ShouldPause = true.");
+                                        #else
                                         tickEventArgs.ShouldPause = true;
+                                        #endif
+                                    }
                                 }
 
                                 if (sdlEvent.window.windowEvent == SDL.SDL_WindowEventID.SDL_WINDOWEVENT_CLOSE)
