@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <RootNamespace>JustinCredible.GalagaEmu</RootNamespace>
+    <Version>1.0.0</Version>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>CS0618</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.JSON" Version="12.0.3" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="1.0.0-rc0003" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\z80\z80.csproj" />
+    <ProjectReference Include="..\disassembler\disassembler.csproj" />
+  </ItemGroup>
+
+  <!-- Allows the unit test project to have access to the properties declared internal. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+    <_Parameter1>emulator.tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>
