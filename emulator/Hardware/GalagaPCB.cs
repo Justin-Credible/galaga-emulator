@@ -69,14 +69,19 @@ namespace JustinCredible.GalagaEmu
         public DIPSwitches DIPSwitchState { get; set; } = new DIPSwitches();
         public Buttons ButtonState { get; set; } = new Buttons();
 
-        // Each CPU has its own specific ROMs mapped into its address space.
-        private byte[] _cpu1Rom = null;
-        private byte[] _cpu2Rom = null;
-        private byte[] _cpu3Rom = null;
+        // There is 64KB of address space available, but only ~5KB is mapped to RAM/VRAM. However, we'll
+        // make the array the full size so that we don't have to do address translations when performing I/O.
+        private const int ADDRESS_SPACE = 64 * 1024;
 
-        // TODO: Document memory map here.
-        // This will hold the shared RAM region for all CPUs.
-        private byte[] _memory = null;
+        // This will hold the shared RAM and VRAM regions for all CPUs.
+        // http://www.arcaderestoration.com/memorymap/3291/Galaga.aspx
+        // https://github.com/mamedev/mame/blob/cf56aee3df86cc089acc6238f80142222bd3255b/src/mame/drivers/galaga.cpp#L186-L262
+        private byte[] _memory = null; // 64 KB of address space
+
+        // Each CPU has its own specific ROMs mapped into its address space.
+        private byte[] _cpu1Rom = null; // 16 KB
+        private byte[] _cpu2Rom = null; // 1 KB
+        private byte[] _cpu3Rom = null; // 1 KB
 
         #endregion
 
@@ -241,6 +246,9 @@ namespace JustinCredible.GalagaEmu
             _cpu3.OnDeviceRead += (int deviceID) => CPU_OnDeviceRead(CPUIdentifier.CPU3_SoundProcessor, deviceID);
             _cpu3.OnDeviceWrite += (int deviceID, byte data) => CPU_OnDeviceWrite(CPUIdentifier.CPU3_SoundProcessor, deviceID, data);
             _cyclesSinceLastInterrupt = 0;
+
+            // Initialize an array for the CPU's shared RAM and video RAM.
+            _memory = new byte[ADDRESS_SPACE];
 
             // Fetch and load the ROM data; each CPU has 64KB of address space and the ROMs are mapped in to
             // each starting at address zero. CPU1 has 16KB of ROM, while CPU2/3 have 4KB.
@@ -432,8 +440,7 @@ namespace JustinCredible.GalagaEmu
 
         public byte Read(CPUIdentifier cpuID, int address)
         {
-            // TODO: Determine memory map; RAM, video RAM, 05xx starfield I/O, audio I/O, 06xx bus I/O (54xx/51xx).
-            if (address >= 0x0000 && address <= 0x4000)
+            if (address >= 0x0000 && address <= 0x3FFF)
             {
                 switch (cpuID)
                 {
@@ -462,6 +469,55 @@ namespace JustinCredible.GalagaEmu
                         throw new NotImplementedException($"Read for CPU{(int)cpuID} is not implemented.");
                 }
             }
+            else if (address >= 0x6800 && address <= 0x6807)
+            {
+                // 8 Bytes: DIP Switches ("bosco_dsw_r")
+                // TODO: Implement DIP switch settings: http://www.arcaderestoration.com/gamedips/3291/All/Galaga.aspx
+                switch (address)
+                {
+                    case 0x6801:
+                        return 0x00; // TODO: DIP Switch A ?
+                    case 0x6802:
+                        return 0x00; // TODO: DIP Switch B ?
+                    default:
+                        // TODO: Seeing a read by CPU2 for 0x6804 which I wasn't expecting...
+                        // "Read from bosco_dsw_r range 0x6800 - 0x6807 (0x6804) for CPU2; returning 0x00"
+                        //throw new NotImplementedException(String.Format("Read from bosco_dsw_r range 0x6800 - 0x6807 (0x{0:X4}) for CPU{1} is not implemented", address, (int)cpuID));
+                        #if DEBUG
+                        Console.WriteLine(String.Format("Read from bosco_dsw_r range 0x6800 - 0x6807 (0x{0:X4}) for CPU{1}; returning 0x00", address, (int)cpuID));
+                        #endif
+                        return 0x00;
+                }
+            }
+            else if (address >= 0x7000 && address <= 0x7100)
+            {
+                // 256 + 1 Bytes for 06xx Bus Interface; attaches to Namco51xx (inputs etc) and Namco54xx (noise generator).
+                // TODO.
+                #if DEBUG
+                Console.WriteLine(String.Format("Read from 06xx Bus interface range 0x7000 - 0x7100 (0x{0:X4}) for CPU{1}; returning 0x00", address, (int)cpuID));
+                #endif
+                return 0x00;
+            }
+            else if (address >= 0x8000 && address <= 0x87FF)
+            {
+                // 2KB; Shared VRAM
+                return _memory[address];
+            }
+            else if (address >= 0x8800 && address <= 0x8BFF)
+            {
+                // 1KB; Shared RAM 1
+                return _memory[address];
+            }
+            else if (address >= 0x9000 && address <= 0x93FF)
+            {
+                // 1KB; Shared RAM 2
+                return _memory[address];
+            }
+            else if (address >= 0x9800 && address <= 0x9BFF)
+            {
+                // 1KB; Shared RAM 3
+                return _memory[address];
+            }
             else if (address < 0x00)
             {
                 throw new IndexOutOfRangeException(String.Format("Invalid read memory address (< 0x0000) for CPU{1}: 0x{0:X4}", address, (int)cpuID));
@@ -483,9 +539,11 @@ namespace JustinCredible.GalagaEmu
 
         public void Write(CPUIdentifier cpuID, int address, byte value)
         {
-            // TODO: Determine memory map; RAM, video RAM, 05xx starfield I/O, audio I/O, 06xx bus I/O (54xx/51xx).
-            if (address >= 0x0000 && address <= 0x4000)
+            if (address >= 0x0000 && address <= 0x3FFF)
             {
+                // TODO: The following page indicates that a write to the ROM region is a NOP.
+                // So I may need to remove this exception, but will leave in place for now so I can debug.
+                // http://www.arcaderestoration.com/memorymap/3291/Galaga.aspx
                 if (!AllowWritableROM)
                     throw new Exception(String.Format("Unexpected write to ROM region (0x0000 - 0x3FFF) for CPU{1}: {0:X4}", address, (int)cpuID));
 
@@ -518,6 +576,104 @@ namespace JustinCredible.GalagaEmu
                     default:
                         throw new NotImplementedException($"Write for CPU{(int)cpuID} is not implemented.");
                 }
+            }
+            else if (address >= 0x6800 && address <= 0x681F)
+            {
+                // 32 Bytes for Audio I/O: Waveform Sound Generator (WSG)
+                // TODO: Is this the same as the WSG3 used in Pac-Man?
+                #if DEBUG
+                Console.WriteLine(String.Format("Write to Audio I/O range 0x6800 - 0x681E (0x{0:X4}) for CPU{2} with value 0x{1:X2}", address, value, (int)cpuID));
+                #endif
+            }
+            else if (address >= 0x6820 && address <= 0x6827)
+            {
+                // 8 Bytes: Latches ("bosco_latch_w").
+                switch (address)
+                {
+                    case 0x6820:
+                        // IRQ1: main CPU (CPU1) irq enable/acknowledge
+                        // TODO
+                        #if DEBUG
+                        Console.WriteLine(String.Format("'IRQ1: main CPU (CPU1) irq enable/acknowledge' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
+                        #endif
+                        break;
+                    case 0x6821:
+                        // IRQ2: motion CPU (CPU2) irq enable/acknowledge
+                        // TODO
+                        #if DEBUG
+                        Console.WriteLine(String.Format("'IRQ2: motion CPU (CPU2) irq enable/acknowledge' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
+                        #endif
+                        break;
+                    case 0x6822:
+                        // NMION: sound CPU (CPU3) nmi enable
+                        // TODO
+                        #if DEBUG
+                        Console.WriteLine(String.Format("'NMION: sound CPU (CPU3) nmi enable' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
+                        #endif
+                        break;
+                    case 0x6823:
+                        // RESET: reset sub and sound CPU, and 5xXX chips on CPU board
+                        // TODO
+                        #if DEBUG
+                        Console.WriteLine(String.Format("'RESET: reset sub and sound CPU, and 5xXX chips on CPU board' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
+                        #endif
+                        break;
+                    default:
+                        // 0x6824 n.c.
+                        // 0x6825 MOD 0 unused ?
+                        // 0x6826 MOD 1 unused ?
+                        // 0x6827 MOD 1 unused ?
+                        throw new NotImplementedException(String.Format("Write to bosco_latch_w range 0x6820 - 0x6827 (0x{0:X4}) for CPU{2} is not implemented; value: 0x{1:X2}", address, value, (int)cpuID));
+                }
+            }
+            else if (address == 0x6830)
+            {
+                // 1 Byte: Watchdog reset (not implemented in this emulator)
+                // no-op
+            }
+            else if (address >= 0x7000 && address <= 0x7100)
+            {
+                // 256 + 1 Bytes for 06xx Bus Interface; attaches to Namco51xx (inputs etc) and Namco54xx (noise generator).
+                // TODO.
+                #if DEBUG
+                Console.WriteLine(String.Format("Write for 06xx Bus interface range 0x7000 - 0x7100 (0x{0:X4}) for CPU{2} with value 0x{1:X2}", address, value, (int)cpuID));
+                #endif
+            }
+            else if (address >= 0x8000 && address <= 0x87FF)
+            {
+                // 2KB; Video RAM
+                _memory[address] = value;
+            }
+            else if (address >= 0x8800 && address <= 0x8BFF)
+            {
+                // 1KB; Shared RAM 1
+                _memory[address] = value;
+            }
+            else if (address >= 0x9000 && address <= 0x93FF)
+            {
+                // 1KB; Shared RAM 2
+                _memory[address] = value;
+            }
+            else if (address >= 0x9800 && address <= 0x9BFF)
+            {
+                // 1KB; Shared RAM 3
+                _memory[address] = value;
+            }
+            else if (address >= 0xA000 && address <= 0xA005)
+            {
+                // 6 Bytes; Starfield Generator control
+                // TODO.
+                #if DEBUG
+                Console.WriteLine(String.Format("Write for Starfield generator 0xA000 - 0xA005 (0x{0:X4}) for CPU{2} with value 0x{1:X2}", address, value, (int)cpuID));
+                #endif
+            }
+            else if (address >= 0xA007)
+            {
+                // 1 Byte; Flip Screen.
+                // TODO.
+                #if DEBUG
+                Console.WriteLine(String.Format("Write for flip screen 0xA007 for CPU{1} with value 0x{0:X2}", value, (int)cpuID));
+                #endif
             }
             else
             {
