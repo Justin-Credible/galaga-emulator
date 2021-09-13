@@ -13,7 +13,7 @@ namespace JustinCredible.GalagaEmu
      * Zilog Z80 CPU instances, video & sound hardware, Namco 51XX/54XX MCUs, memory mapping,
      * interrupts, debugger, and hardware loop.
      */
-    public class GalagaPCB : IMemory
+    public class GalagaPCB : IMemoryMap
     {
         // The thread on which we'll run the hardware emulation loop.
         private Thread _thread;
@@ -59,13 +59,23 @@ namespace JustinCredible.GalagaEmu
         // The Namco MCUs runs at CPU_MHZ/6/2 = 1.536MHz.
         private const int NAMCO_MCU_HZ = CPU_HZ / 6 / 2;
 
-        internal CPU _cpu; // Zilog Z80 // TODO: There should be three CPUs.
+        // Galaga uses three Z80 CPUs.
+        internal CPU _cpu1; // Main Controller
+        internal CPU _cpu2; // Game Helper
+        internal CPU _cpu3; // Sound Processor
+
         // private VideoHardware _video; // TODO
         // private AudioHardware _audio; // TODO
         public DIPSwitches DIPSwitchState { get; set; } = new DIPSwitches();
         public Buttons ButtonState { get; set; } = new Buttons();
 
-        // TODO: The first 64KB of address space is unique to each CPU... the rest of it is shared?
+        // Each CPU has its own specific ROMs mapped into its address space.
+        private byte[] _cpu1Rom = null;
+        private byte[] _cpu2Rom = null;
+        private byte[] _cpu3Rom = null;
+
+        // TODO: Document memory map here.
+        // This will hold the shared RAM region for all CPUs.
         private byte[] _memory = null;
 
         #endregion
@@ -164,10 +174,45 @@ namespace JustinCredible.GalagaEmu
             if (ROMSet != ROMSet.GalagaNamcoRevB)
                 throw new ArgumentException($"Unexpected ROM set: {ROMSet}");
 
-            // TODO: Initialize each of the three CPUs.
+            // The initial configuration of the CPUs.
 
-            // The initial configuration of the CPU.
-            var cpuConfig = new CPUConfig()
+            var cpu1Config = new CPUConfig()
+            {
+                Registers = new CPURegisters()
+                {
+                    PC = 0x0000,
+
+                    // Hardcode the stackpointer to the top of the RAM.
+                    // TODO: Determine what this should be for Galaga (this was from Pac-Man).
+                    SP = 0x4FEF,
+                },
+
+                // Interrupts are initially disabled, and will be enabled by the program ROM when ready.
+                InterruptsEnabled = false,
+
+                // Diagnostics is only for unit tests.
+                EnableDiagnosticsMode = false,
+            };
+
+            var cpu2Config = new CPUConfig()
+            {
+                Registers = new CPURegisters()
+                {
+                    PC = 0x0000,
+
+                    // Hardcode the stackpointer to the top of the RAM.
+                    // TODO: Determine what this should be for Galaga (this was from Pac-Man).
+                    SP = 0x4FEF,
+                },
+
+                // Interrupts are initially disabled, and will be enabled by the program ROM when ready.
+                InterruptsEnabled = false,
+
+                // Diagnostics is only for unit tests.
+                EnableDiagnosticsMode = false,
+            };
+
+            var cpu3Config = new CPUConfig()
             {
                 Registers = new CPURegisters()
                 {
@@ -186,48 +231,43 @@ namespace JustinCredible.GalagaEmu
             };
 
             // Initialize the CPU and subscribe to device events.
-            _cpu = new CPU(cpuConfig);
-            _cpu.OnDeviceRead += CPU_OnDeviceRead;
-            _cpu.OnDeviceWrite += CPU_OnDeviceWrite;
+            _cpu1 = new CPU(cpu1Config);
+            _cpu1.OnDeviceRead += (int deviceID) => CPU_OnDeviceRead(CPUIdentifier.CPU1_MainController, deviceID);
+            _cpu1.OnDeviceWrite += (int deviceID, byte data) => CPU_OnDeviceWrite(CPUIdentifier.CPU1_MainController, deviceID, data);
+            _cpu2 = new CPU(cpu2Config);
+            _cpu2.OnDeviceRead += (int deviceID) => CPU_OnDeviceRead(CPUIdentifier.CPU2_GameHelper, deviceID);
+            _cpu2.OnDeviceWrite += (int deviceID, byte data) => CPU_OnDeviceWrite(CPUIdentifier.CPU2_GameHelper, deviceID, data);
+            _cpu3 = new CPU(cpu3Config);
+            _cpu3.OnDeviceRead += (int deviceID) => CPU_OnDeviceRead(CPUIdentifier.CPU3_SoundProcessor, deviceID);
+            _cpu3.OnDeviceWrite += (int deviceID, byte data) => CPU_OnDeviceWrite(CPUIdentifier.CPU3_SoundProcessor, deviceID, data);
             _cyclesSinceLastInterrupt = 0;
 
-            // Fetch the ROM data; we trust the contents were validated with a CRC32 check elsewhere, but
-            // since the CRC check can be bypassed, we at least need to ensure the file sizes are correct
-            // since this classes' implementation of IMemory is expecting certain addreses.
+            // Fetch and load the ROM data; each CPU has 64KB of address space and the ROMs are mapped in to
+            // each starting at address zero. CPU1 has 16KB of ROM, while CPU2/3 have 4KB.
 
-            /* TODO: Read in code ROMs for each CPU and create IMemory wrapper so each CPU will be mapped correctly.
-            var codeRom1 = romData.Data[ROMs.PAC_MAN_CODE_1.FileName];
-            var codeRom2 = romData.Data[ROMs.PAC_MAN_CODE_2.FileName];
-            var codeRom3 = romData.Data[ROMs.PAC_MAN_CODE_3.FileName];
-            var codeRom4 = romData.Data[ROMs.PAC_MAN_CODE_4.FileName];
+            var cpu1CodeRom1 = romData.Data[ROMs.NAMCO_REV_B_CPU1_CODE1.FileName];
+            var cpu1CodeRom2 = romData.Data[ROMs.NAMCO_REV_B_CPU1_CODE2.FileName];
+            var cpu1CodeRom3 = romData.Data[ROMs.NAMCO_REV_B_CPU1_CODE3.FileName];
+            var cpu1CodeRom4 = romData.Data[ROMs.NAMCO_REV_B_CPU1_CODE4.FileName];
+            var cpu2CodeRom = romData.Data[ROMs.NAMCO_REV_B_CPU2_CODE.FileName];
+            var cpu3CodeRom = romData.Data[ROMs.NAMCO_REV_B_CPU3_CODE.FileName];
 
-            if (codeRom1.Length != 4096 || codeRom2.Length != 4096 || codeRom3.Length != 4096 || codeRom4.Length != 4096)
-                throw new Exception("All code ROMs must be exactly 4KB in size.");
+            _cpu1Rom = new byte[(cpu1CodeRom1.Length + cpu1CodeRom2.Length + cpu1CodeRom3.Length + cpu1CodeRom4.Length)];
+            _cpu2Rom = new byte[cpu2CodeRom.Length];
+            _cpu3Rom = new byte[cpu3CodeRom.Length];
 
-            // Define our addressable memory space, which includes the game code ROMS and RAM.
+            Array.Copy(cpu1CodeRom1, 0, _cpu1Rom, 0, cpu1CodeRom1.Length);
+            Array.Copy(cpu1CodeRom2, 0, _cpu1Rom, cpu1CodeRom1.Length, cpu1CodeRom2.Length);
+            Array.Copy(cpu1CodeRom3, 0, _cpu1Rom, cpu1CodeRom1.Length + cpu1CodeRom2.Length, cpu1CodeRom3.Length);
+            Array.Copy(cpu1CodeRom4, 0, _cpu1Rom, cpu1CodeRom1.Length + cpu1CodeRom2.Length + cpu1CodeRom3.Length, cpu1CodeRom4.Length);
+            Array.Copy(cpu2CodeRom, 0, _cpu2Rom, 0, cpu2CodeRom.Length);
+            Array.Copy(cpu3CodeRom, 0, _cpu3Rom, 0, cpu3CodeRom.Length);
 
-            var addressableMemorySize =
-                codeRom1.Length     // Code ROM 1
-                + codeRom2.Length   // Code ROM 2
-                + codeRom3.Length   // Code ROM 3
-                + codeRom4.Length   // Code ROM 4
-                + 1024              // Video RAM (tile information)
-                + 1024              // Video RAM (tile palettes)
-                + 2032              // RAM
-                + 16;               // Sprite numbers
-
-            _memory = new byte[addressableMemorySize];
-
-            // Map the code ROM into the lower 16K of the memory space.
-            Array.Copy(codeRom1, 0, _memory, 0, codeRom1.Length);
-            Array.Copy(codeRom2, 0, _memory, codeRom1.Length, codeRom2.Length);
-            Array.Copy(codeRom3, 0, _memory, codeRom1.Length + codeRom2.Length, codeRom3.Length);
-            Array.Copy(codeRom4, 0, _memory, codeRom1.Length + codeRom2.Length + codeRom3.Length, codeRom4.Length);
-            */
-
-            // This class implements the IMemory interface, which the CPU needs to determine how to read and
+            // This class implements the IMemoryMap interface, which the CPU needs to determine how to read and
             // write data. We set the reference to this class instance (whose implementation uses _memory).
-            _cpu.Memory = this;
+            _cpu1.Memory = new MemoryMapper(CPUIdentifier.CPU1_MainController, this);
+            _cpu2.Memory = new MemoryMapper(CPUIdentifier.CPU2_GameHelper, this);
+            _cpu3.Memory = new MemoryMapper(CPUIdentifier.CPU3_SoundProcessor, this);
 
             // Initialize video hardware. // TODO
             // _video = new VideoHardware(romData, ROMSet);
@@ -235,6 +275,10 @@ namespace JustinCredible.GalagaEmu
 
             // Initialize audio hardware. // TODO
             // _audio = new AudioHardware(romData, ROMSet);
+
+            // TODO: Initialize Namco 51XX (input)
+            // TODO: Initialize Namco 54XX (noise generator)
+            // TODO: Initialize 05XX (starfield generator)
 
             if (state != null)
                 LoadState(state);
@@ -314,6 +358,10 @@ namespace JustinCredible.GalagaEmu
          */
         public void ReverseStep()
         {
+            // TODO: Decide if it's worth implementing reverse step for all 3 CPU instances.
+            throw new NotImplementedException();
+
+            /*
             if (!Debug && !ReverseStepEnabled)
                 throw new Exception("Debug feature: reverse stepping is not enabled.");
 
@@ -331,6 +379,7 @@ namespace JustinCredible.GalagaEmu
             LoadState(state);
             _cyclesSinceLastInterrupt -= state.LastCyclesExecuted.Value;
             OnBreakpointHitEvent.Invoke();
+            */
         }
 
         #endregion
@@ -340,8 +389,11 @@ namespace JustinCredible.GalagaEmu
         /**
          * Used to handle the CPU's IN instruction; read value from given device ID.
          */
-        private byte CPU_OnDeviceRead(int deviceID)
+        private byte CPU_OnDeviceRead(CPUIdentifier cpuID, int deviceID)
         {
+            if (cpuID != CPUIdentifier.CPU1_MainController)
+                throw new NotImplementedException($"Device read for CPU{(int)cpuID} not implemented.");
+
             // I don't believe the Galaga game code reads from any external devices.
             switch (deviceID)
             {
@@ -354,8 +406,11 @@ namespace JustinCredible.GalagaEmu
         /**
          * Used to handle the CPU's OUT instruction; write value to given device ID.
          */
-        private void CPU_OnDeviceWrite(int deviceID, byte data)
+        private void CPU_OnDeviceWrite(CPUIdentifier cpuID, int deviceID, byte data)
         {
+            if (cpuID != CPUIdentifier.CPU1_MainController)
+                throw new NotImplementedException($"Device write for CPU{(int)cpuID} not implemented.");
+
             switch (deviceID)
             {
                 // The Pac-Man game code writes data to port zero, which is used as the lower 8 bits of an
@@ -375,57 +430,110 @@ namespace JustinCredible.GalagaEmu
 
         #region Memory Read/Write Implementation (IMemory)
 
-        public byte Read(int address)
+        public byte Read(CPUIdentifier cpuID, int address)
         {
-            // TODO: Determine memory map... have an IMemory implementation per CPU?
-            if (address >= 0x0000 && address <= 0x3FFF)
+            // TODO: Determine memory map; RAM, video RAM, 05xx starfield I/O, audio I/O, 06xx bus I/O (54xx/51xx).
+            if (address >= 0x0000 && address <= 0x4000)
             {
-                return _memory[address];
+                switch (cpuID)
+                {
+                    case CPUIdentifier.CPU1_MainController:
+                    {
+                        // CPU1 has 16KB of ROM starting at address zero.
+                        return _cpu1Rom[address];
+                    }
+                    case CPUIdentifier.CPU2_GameHelper:
+                    {
+                        // Sanity check; CPU2/3 only has 4KB of ROM so I don't expect this to hit.
+                        if (address >= 0x1000)
+                            throw new Exception(String.Format("Unexpected read memory address for CPU{1}: 0x{0:X4}", address, (int)cpuID));
+
+                        return _cpu2Rom[address];
+                    }
+                    case CPUIdentifier.CPU3_SoundProcessor:
+                    {
+                        // Sanity check; CPU2/3 only has 4KB of ROM so I don't expect this to hit.
+                        if (address >= 0x1000)
+                            throw new Exception(String.Format("Unexpected read memory address for CPU{1}: 0x{0:X4}", address, (int)cpuID));
+
+                        return _cpu3Rom[address];
+                    }
+                    default:
+                        throw new NotImplementedException($"Read for CPU{(int)cpuID} is not implemented.");
+                }
             }
             else if (address < 0x00)
             {
-                throw new IndexOutOfRangeException(String.Format("Invalid read memory address (< 0x0000): 0x{0:X4}", address));
+                throw new IndexOutOfRangeException(String.Format("Invalid read memory address (< 0x0000) for CPU{1}: 0x{0:X4}", address, (int)cpuID));
             }
             else
             {
                 // TODO: I may need to remove and/or relax this restriction. Adding an exception for now
                 // so I can troubleshoot while getting things running.
-                throw new Exception(String.Format("Unexpected read memory address: 0x{0:X4}", address));
+                throw new Exception(String.Format("Unexpected read memory address for CPU{1}: 0x{0:X4}", address, (int)cpuID));
             }
         }
 
-        public ushort Read16(int address)
+        public ushort Read16(CPUIdentifier cpuID, int address)
         {
-            var lower = Read(address);
-            var upper = Read(address + 1) << 8;
+            var lower = Read(cpuID, address);
+            var upper = Read(cpuID, address + 1) << 8;
             return (UInt16)(upper | lower);
         }
 
-        public void Write(int address, byte value)
+        public void Write(CPUIdentifier cpuID, int address, byte value)
         {
-            // TODO: Determine memory map... have an IMemory implementation per CPU?
-            if (address >= 0x0000 && address <= 0x3FFF)
+            // TODO: Determine memory map; RAM, video RAM, 05xx starfield I/O, audio I/O, 06xx bus I/O (54xx/51xx).
+            if (address >= 0x0000 && address <= 0x4000)
             {
-                if (AllowWritableROM)
-                    _memory[address] = value;
-                else
-                    throw new Exception(String.Format("Unexpected write to ROM region (0x0000 - 0x3FFF): {0:X4}", address));
+                if (!AllowWritableROM)
+                    throw new Exception(String.Format("Unexpected write to ROM region (0x0000 - 0x3FFF) for CPU{1}: {0:X4}", address, (int)cpuID));
+
+                switch (cpuID)
+                {
+                    case CPUIdentifier.CPU1_MainController:
+                    {
+                        // CPU1 has 16KB of ROM starting at address zero.
+                        _cpu1Rom[address] = value;
+                        break;
+                    }
+                    case CPUIdentifier.CPU2_GameHelper:
+                    {
+                        // Sanity check; CPU2/3 only has 4KB of ROM so I don't expect this to hit.
+                        if (address >= 0x1000)
+                            throw new Exception(String.Format("Unexpected read memory address for CPU{1}: 0x{0:X4}", address, (int)cpuID));
+
+                        _cpu2Rom[address] = value;
+                        break;
+                    }
+                    case CPUIdentifier.CPU3_SoundProcessor:
+                    {
+                        // Sanity check; CPU2/3 only has 4KB of ROM so I don't expect this to hit.
+                        if (address >= 0x1000)
+                            throw new Exception(String.Format("Unexpected read memory address for CPU{1}: 0x{0:X4}", address, (int)cpuID));
+
+                        _cpu3Rom[address] = value;
+                        break;
+                    }
+                    default:
+                        throw new NotImplementedException($"Write for CPU{(int)cpuID} is not implemented.");
+                }
             }
             else
             {
                 // Writing to any other locations will do nothing.
                 // TODO: Throw an exception during development so I can troubleshoot while getting things running.
-                // Console.WriteLine(String.Format("Unexpected write to memory address: 0x{0:X4} with value: 0x{1:X2}", address, value));
-                throw new Exception(String.Format("Unexpected write to memory address: 0x{0:X4} with value: 0x{1:X2}", address, value));
+                // Console.WriteLine(String.Format("Unexpected write to memory address: 0x{0:X4} with value: 0x{1:X2} for CPU{2}", address, value, (int)cpuID));
+                throw new Exception(String.Format("Unexpected write to memory address: 0x{0:X4} with value: 0x{1:X2} for CPU{2}", address, value, (int)cpuID));
             }
         }
 
-        public void Write16(int address, ushort value)
+        public void Write16(CPUIdentifier cpuID, int address, ushort value)
         {
             var lower = (byte)(value & 0x00FF);
             var upper = (byte)((value & 0xFF00) >> 8);
-            Write(address, lower);
-            Write(address + 1, upper);
+            Write(cpuID, address, lower);
+            Write(cpuID, address + 1, upper);
         }
 
         #endregion
@@ -461,7 +569,11 @@ namespace JustinCredible.GalagaEmu
                     }
 
                     // Step the CPU to execute the next instruction.
-                    var cycles = _cpu.Step();
+                    // TODO: Since I'm only looking at cycles on CPU1, the other CPUs may not be
+                    // throttled properly. I'm hoping this won't matter and it will be "good enough".
+                    var cycles = _cpu1.Step();
+                    _cpu2.Step();
+                    _cpu3.Step();
 
                     // Keep track of the number of cycles to see if we need to throttle the CPU.
                     _cycleCount += cycles;
@@ -502,7 +614,9 @@ namespace JustinCredible.GalagaEmu
             }
 #endif
 
-            _cpu = null;
+            _cpu1 = null;
+            _cpu2 = null;
+            _cpu3 = null;
             _thread = null;
         }
 
@@ -528,20 +642,34 @@ namespace JustinCredible.GalagaEmu
             // CRT electron beam reached the end (V-Blank).
 
             // If interrupts are enabled, then handle them, otherwise do nothing.
-            if (_cpu.InterruptsEnabled)
+            if (_cpu1.InterruptsEnabled)
             {
                 // If we're going to run an interrupt handler, ensure interrupts are disabled.
                 // This ensures we don't interrupt the interrupt handler. The program ROM will
                 // re-enable the interrupts manually.
-                _cpu.InterruptsEnabled = false;
+                _cpu1.InterruptsEnabled = false;
 
                 // Execute the handler for the interrupt.
-                _cpu.StepMaskableInterrupt(_port0WriteLastData);
+                _cpu1.StepMaskableInterrupt(_port0WriteLastData);
 
                 // Every 1/60 of a second is a good time for us to generate a video frame as
                 // well as all of the audio samples that need to be queued up to play.
                 HandleRenderVideoFrame();
                 HandleRenderAudioSamples();
+            }
+
+            // If interrupts are enabled, then handle them, otherwise do nothing.
+            if (_cpu2.InterruptsEnabled)
+            {
+                // If we're going to run an interrupt handler, ensure interrupts are disabled.
+                // This ensures we don't interrupt the interrupt handler. The program ROM will
+                // re-enable the interrupts manually.
+                _cpu2.InterruptsEnabled = false;
+
+                // Execute the handler for the interrupt.
+                // TODO: Technically this should be last write data for CPU2's port 0 write, but
+                // since Galaga is not using interrupt modes zero or two, I don't think it matters.
+                _cpu2.StepMaskableInterrupt(0x00);
             }
 
             // Reset the count so we can count up again.
@@ -597,15 +725,17 @@ namespace JustinCredible.GalagaEmu
          */
         private void HandleDebugFeaturesPreStep()
         {
+            // TODO: Add address history and breakpoints for CPU2/3?
+
             // Record the current address.
 
-            _addressHistory.Add(_cpu.Registers.PC);
+            _addressHistory.Add(_cpu1.Registers.PC);
 
             if (_addressHistory.Count >= MAX_ADDRESS_HISTORY)
                 _addressHistory.RemoveAt(0);
 
             // See if we need to break based on a given address.
-            if (BreakAtAddresses.Contains(_cpu.Registers.PC))
+            if (BreakAtAddresses.Contains(_cpu1.Registers.PC))
                 _singleStepping = true;
 
             // If we need to break, print out the CPU state and wait for a keypress.
@@ -654,12 +784,27 @@ namespace JustinCredible.GalagaEmu
         {
             return new EmulatorState()
             {
-                Registers = _cpu.Registers,
-                Flags = _cpu.Flags,
-                Halted = _cpu.Halted,
-                InterruptsEnabled = _cpu.InterruptsEnabled,
-                InterruptsEnabledPreviousValue = _cpu.InterruptsEnabledPreviousValue,
-                InterruptMode = _cpu.InterruptMode,
+                CPU1Registers = _cpu1.Registers,
+                CPU1Flags = _cpu1.Flags,
+                CPU1Halted = _cpu1.Halted,
+                CPU1InterruptsEnabled = _cpu1.InterruptsEnabled,
+                CPU1InterruptsEnabledPreviousValue = _cpu1.InterruptsEnabledPreviousValue,
+                CPU1InterruptMode = _cpu1.InterruptMode,
+
+                CPU2Registers = _cpu2.Registers,
+                CPU2Flags = _cpu2.Flags,
+                CPU2Halted = _cpu2.Halted,
+                CPU2InterruptsEnabled = _cpu2.InterruptsEnabled,
+                CPU2InterruptsEnabledPreviousValue = _cpu2.InterruptsEnabledPreviousValue,
+                CPU2InterruptMode = _cpu2.InterruptMode,
+
+                CPU3Registers = _cpu3.Registers,
+                CPU3Flags = _cpu3.Flags,
+                CPU3Halted = _cpu3.Halted,
+                CPU3InterruptsEnabled = _cpu3.InterruptsEnabled,
+                CPU3InterruptsEnabledPreviousValue = _cpu3.InterruptsEnabledPreviousValue,
+                CPU3InterruptMode = _cpu3.InterruptMode,
+
                 Memory = _memory,
                 // SpriteCoordinates = _spriteCoordinates,
                 TotalCycles = _totalCycles,
@@ -675,12 +820,27 @@ namespace JustinCredible.GalagaEmu
          */
         public void LoadState(EmulatorState state)
         {
-            _cpu.Registers = state.Registers;
-            _cpu.Flags = state.Flags;
-            _cpu.Halted = state.Halted;
-            _cpu.InterruptsEnabled = state.InterruptsEnabled;
-            _cpu.InterruptsEnabledPreviousValue = state.InterruptsEnabledPreviousValue;
-            _cpu.InterruptMode = state.InterruptMode;
+            _cpu1.Registers = state.CPU1Registers;
+            _cpu1.Flags = state.CPU1Flags;
+            _cpu1.Halted = state.CPU1Halted;
+            _cpu1.InterruptsEnabled = state.CPU1InterruptsEnabled;
+            _cpu1.InterruptsEnabledPreviousValue = state.CPU1InterruptsEnabledPreviousValue;
+            _cpu1.InterruptMode = state.CPU1InterruptMode;
+
+            _cpu2.Registers = state.CPU2Registers;
+            _cpu2.Flags = state.CPU2Flags;
+            _cpu2.Halted = state.CPU2Halted;
+            _cpu2.InterruptsEnabled = state.CPU2InterruptsEnabled;
+            _cpu2.InterruptsEnabledPreviousValue = state.CPU2InterruptsEnabledPreviousValue;
+            _cpu2.InterruptMode = state.CPU2InterruptMode;
+
+            _cpu3.Registers = state.CPU3Registers;
+            _cpu3.Flags = state.CPU3Flags;
+            _cpu3.Halted = state.CPU3Halted;
+            _cpu3.InterruptsEnabled = state.CPU3InterruptsEnabled;
+            _cpu3.InterruptsEnabledPreviousValue = state.CPU3InterruptsEnabledPreviousValue;
+            _cpu3.InterruptMode = state.CPU3InterruptMode;
+
             _memory = state.Memory;
             // _spriteCoordinates = state.SpriteCoordinates;
             _totalCycles = state.TotalCycles;

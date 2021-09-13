@@ -33,6 +33,9 @@ namespace JustinCredible.GalagaEmu
         // Indicates if annotated disassembly should be shown (as opposed to pseudocode code).
         private bool _debuggerShowAnnotatedDisassembly = true;
 
+        // Used to keep track of which CPU to show in the debugger.
+        private CPUIdentifier _debuggerCPU = CPUIdentifier.CPU1_MainController;
+
         #endregion
 
         #region Events
@@ -173,6 +176,15 @@ namespace JustinCredible.GalagaEmu
                     _debuggerPcb = null;
                     SignalDebuggerNeedsRendering();
                     OnDebugCommand?.Invoke(new DebugCommandEventArgs() { Action = DebugAction.ResumeContinue });
+                    break;
+
+                case SDL.SDL_Keycode.SDLK_F6: // F6 = Switch CPU
+                    _debuggerCPU++;
+
+                    if ((int)_debuggerCPU > 3)
+                        _debuggerCPU = (CPUIdentifier)1;
+
+                    SignalDebuggerNeedsRendering();
                     break;
 
                 case SDL.SDL_Keycode.SDLK_F9: // F9 = Step Backwards

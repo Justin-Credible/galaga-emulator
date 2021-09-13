@@ -301,7 +301,7 @@ namespace JustinCredible.GalagaEmu
                     {
                         if (_debuggerNeedsRendering)
                         {
-                            DebugWindowRenderer.Render(_debugRendererSurface, _debuggerState, _debuggerInputString, _debuggerFileList, _debuggerPcb, _debuggerShowAnnotatedDisassembly);
+                            DebugWindowRenderer.Render(_debugRendererSurface, _debuggerState, _debuggerInputString, _debuggerFileList, _debuggerPcb, _debuggerCPU, _debuggerShowAnnotatedDisassembly);
                             _debuggerNeedsRendering = false;
                         }
                     }
