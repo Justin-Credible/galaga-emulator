@@ -91,13 +91,12 @@ namespace JustinCredible.GalagaEmu.CLI
                 {
                     if (romsetOption.Value() == "galaga")
                         config.RomSet = ROMSet.GalagaNamcoRevB;
-                    // TODO: Add alternative romsets.
-                    // else if (romsetOption.Value() == "galagao")
-                    //     config.RomSet = ROMSet.GalagaNamco;
-                    // else if (romsetOption.Value() == "galagamw")
-                    //     config.RomSet = ROMSet.GalagaMidwaySet1;
-                    // else if (romsetOption.Value() == "galagamk")
-                    //     config.RomSet = ROMSet.GalagaMidwaySet2;
+                    else if (romsetOption.Value() == "galagao")
+                        config.RomSet = ROMSet.GalagaNamco;
+                    else if (romsetOption.Value() == "galagamw")
+                        config.RomSet = ROMSet.GalagaMidwaySet1;
+                    else if (romsetOption.Value() == "galagamk")
+                        config.RomSet = ROMSet.GalagaMidwaySet2;
                     // else if (romsetOption.Value() == "galagamf")
                     //     config.RomSet = ROMSet.GalagaMidwaySet1FastShoot;
                     else

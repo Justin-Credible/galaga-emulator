@@ -17,6 +17,14 @@ namespace JustinCredible.GalagaEmu
 
             if (romset == ROMSet.GalagaNamcoRevB)
                 romFiles = ROMs.GALAGA_NAMCO_REV_B;
+            else if (romset == ROMSet.GalagaNamco)
+                romFiles = ROMs.GALAGA_NAMCO;
+            else if (romset == ROMSet.GalagaMidwaySet1)
+                romFiles = ROMs.GALAGA_MIDWAY_SET_1;
+            else if (romset == ROMSet.GalagaMidwaySet2)
+                romFiles = ROMs.GALAGA_MIDWAY_SET_2;
+            // else if (romset == ROMSet.GalagaMidwaySet1FastShoot)
+            //     romFiles = ROMs.GALAGA_MIDWAY_SET_1_FAST_SHOOT;
             else
                 throw new ArgumentException($"Unexpected romset: {romset}");
 
