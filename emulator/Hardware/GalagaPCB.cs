@@ -340,7 +340,7 @@ namespace JustinCredible.GalagaEmu
          * Used to stop CPU execution and enable single stepping through opcodes via the interactive
          * debugger (only when Debug = true).
          */
-        public void Break(CPUIdentifier? cpuThatTriggeredBreak = CPUIdentifier.CPU1_MainController)
+        public void Break(CPUIdentifier? cpuThatTriggeredBreak = null)
         {
             if (!Debug)
                 return;
@@ -477,7 +477,13 @@ namespace JustinCredible.GalagaEmu
                     {
                         // Sanity check; CPU2/3 only has 4KB of ROM so I don't expect this to hit.
                         if (address >= 0x1000)
-                            throw new Exception(String.Format("Unexpected read memory address for CPU{1}: 0x{0:X4}", address, (int)cpuID));
+                        {
+                            // throw new Exception(String.Format("Unexpected read memory address for CPU{1}: 0x{0:X4}", address, (int)cpuID));
+                            #if DEBUG
+                            Console.WriteLine(String.Format("Unexpected read from range 0x1000 - 01x3FFF (0x{0:X4}) for CPU{1}; returning 0x00", address, (int)cpuID));
+                            #endif
+                            return 0x00;
+                        }
 
                         return _cpu2Rom[address];
                     }
@@ -914,7 +920,7 @@ namespace JustinCredible.GalagaEmu
 
             // See if we need to break based on a given address.
 
-            var cpuThatTriggeredBreakpoint = CPUIdentifier.CPU1_MainController;
+            CPUIdentifier? cpuThatTriggeredBreakpoint = null;
 
             // First check the shared breakpoint list.
 
