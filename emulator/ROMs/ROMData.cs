@@ -4,6 +4,6 @@ namespace JustinCredible.GalagaEmu
 {
     public class ROMData
     {
-        public Dictionary<string, byte[]> Data { get; set; } = new Dictionary<string, byte[]>();
+        public Dictionary<ROMIdentifier, byte[]> Data { get; set; } = new Dictionary<ROMIdentifier, byte[]>();
     }
 }

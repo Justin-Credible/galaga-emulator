@@ -72,8 +72,8 @@ namespace JustinCredible.GalagaEmu
                         Console.WriteLine($"[WARNING] {message}");
                 }
 
-                // Add the binary ROM data to the set indexed by file name.
-                romData.Data[romFile.FileName] = rom;
+                // Add the binary ROM data to the set indexed by identifier enum.
+                romData.Data[romFile.ID] = rom;
             }
 
             return romData;

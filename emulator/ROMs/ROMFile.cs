@@ -11,5 +11,6 @@ namespace JustinCredible.GalagaEmu
         public int Size { get; set; }
         public string CRC32 { get; set; }
         public string Description { get; set; }
+        public ROMIdentifier ID { get; set; }
     }
 }

@@ -13,6 +13,9 @@ namespace JustinCredible.GalagaEmu
         public bool WritableRom { get; set; }
         public bool Debug { get; set; }
         public List<UInt16> Breakpoints { get; set; }
+        public List<UInt16> BreakpointsCpu1 { get; set; }
+        public List<UInt16> BreakpointsCpu2 { get; set; }
+        public List<UInt16> BreakpointsCpu3 { get; set; }
         public bool ReverseStep { get; set; }
         public string AnnotationsCpu1FilePath { get; set; }
         public string AnnotationsCpu2FilePath { get; set; }

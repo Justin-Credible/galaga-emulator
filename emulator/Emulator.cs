@@ -131,6 +131,15 @@ namespace JustinCredible.GalagaEmu
                 if (config.Breakpoints != null)
                     _game.BreakAtAddresses = config.Breakpoints;
 
+                if (config.BreakpointsCpu1 != null)
+                    _game.BreakAtAddressesCPU1 = config.BreakpointsCpu1;
+
+                if (config.BreakpointsCpu2 != null)
+                    _game.BreakAtAddressesCPU2 = config.BreakpointsCpu2;
+
+                if (config.BreakpointsCpu3 != null)
+                    _game.BreakAtAddressesCPU3 = config.BreakpointsCpu3;
+
                 if (config.ReverseStep)
                     _game.ReverseStepEnabled = true;
 
@@ -212,12 +221,12 @@ namespace JustinCredible.GalagaEmu
         //         _platform.QueueAudioSamples(sample);
         // }
 
-        private static void GalagaPCB_OnBreakpointHit()
+        private static void GalagaPCB_OnBreakpointHit(CPUIdentifier? cpuID)
         {
             if (!_game.Debug)
                 return;
 
-            _platform.StartInteractiveDebugger(_game);
+            _platform.StartInteractiveDebugger(_game, cpuID);
         }
 
         /**

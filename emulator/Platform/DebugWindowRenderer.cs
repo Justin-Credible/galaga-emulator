@@ -81,7 +81,25 @@ namespace JustinCredible.GalagaEmu
 
             FontRenderer.RenderString(surface, $"{COLOR_BRIGHT_WHITE}[Status]: {statusColor}{status} {COLOR_BRIGHT_WHITE}[Cycles]: {COLOR_WHITE}{cycleCount}  {COLOR_BRIGHT_WHITE}[Opcodes]: {COLOR_WHITE}{opcodeCount}", 0, 2 * ROW_HEIGHT);
 
-            FontRenderer.RenderString(surface, $"------------------------------[CPU {(int)cpuID} STATE]-------------------------------------", 0, 4 * ROW_HEIGHT);
+            var cpuColor = COLOR_GREEN;
+
+            switch (cpuID)
+            {
+                case CPUIdentifier.CPU1_MainController:
+                    cpuColor = COLOR_GREEN;
+                    break;
+                case CPUIdentifier.CPU2_GameHelper:
+                    cpuColor = COLOR_BLUE;
+                    break;
+                case CPUIdentifier.CPU3_SoundProcessor:
+                    cpuColor = COLOR_YELLOW;
+                    break;
+                default:
+                    cpuColor = COLOR_BRIGHT_RED;
+                    break;
+            }
+
+            FontRenderer.RenderString(surface, $"{COLOR_BRIGHT_WHITE}------------------------------[{cpuColor}CPU {(int)cpuID} {COLOR_BRIGHT_WHITE}STATE]-------------------------------------", 0, 4 * ROW_HEIGHT);
 
             var pc = EMPTY_16BIT_HEX_VALUE_DISPLAY;
             var sp = EMPTY_16BIT_HEX_VALUE_DISPLAY;

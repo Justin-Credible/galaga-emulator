@@ -68,11 +68,14 @@ namespace JustinCredible.GalagaEmu.CLI
             var skipChecksumsOption = command.Option("-sc|--skip-checksums", "Allow running a ROM with invalid checksums.", CommandOptionType.NoValue);
             var writableRomOption = command.Option("-wr|--writable-rom", "Allow memory writes to the ROM address space.", CommandOptionType.NoValue);
             var debugOption = command.Option("-d|--debug", "Run in debug mode; enables internal statistics and logs useful when debugging.", CommandOptionType.NoValue);
-            var breakOption = command.Option("-b|--break", "Used with debug, will break at the given address and allow single stepping opcode execution (e.g. --break 0x0248)", CommandOptionType.MultipleValue);
+            var breakAllOption = command.Option("-b|--break", "Used with debug, will break at the given address (on any CPU) and allow single stepping opcode execution (e.g. --break 0x0248)", CommandOptionType.MultipleValue);
+            var breakCpu1Option = command.Option("-b1|--break-cpu1", "Used with debug, will break at the given address (on CPU1) and allow single stepping opcode execution (e.g. --break 0x0248)", CommandOptionType.MultipleValue);
+            var breakCpu2Option = command.Option("-b2|--break-cpu2", "Used with debug, will break at the given address (on CPU2) and allow single stepping opcode execution (e.g. --break 0x0248)", CommandOptionType.MultipleValue);
+            var breakCpu3Option = command.Option("-b3|--break-cpu3", "Used with debug, will break at the given address (on CPU3) and allow single stepping opcode execution (e.g. --break 0x0248)", CommandOptionType.MultipleValue);
             var reverseStepOption = command.Option("-rvs|--reverse-step", "Used with debug, allows for single stepping in reverse to rewind opcode execution.", CommandOptionType.NoValue);
             var annotationsCpu1PathOption = command.Option("-a1|--annotations-cpu1", "Used with debug, a path to a text file containing memory address annotations for interactive debugging (line format: 1234: .... ; Annotation) for CPU1", CommandOptionType.SingleValue);
-            var annotationsCpu2PathOption = command.Option("-a2|--annotations-cpu2", "Used with debug, a path to a text file containing memory address annotations for interactive debugging (line format: 1234: .... ; Annotation) for CPU1", CommandOptionType.SingleValue);
-            var annotationsCpu3PathOption = command.Option("-a3|--annotations-cpu3", "Used with debug, a path to a text file containing memory address annotations for interactive debugging (line format: 1234: .... ; Annotation) for CPU1", CommandOptionType.SingleValue);
+            var annotationsCpu2PathOption = command.Option("-a2|--annotations-cpu2", "Used with debug, a path to a text file containing memory address annotations for interactive debugging (line format: 1234: .... ; Annotation) for CPU2", CommandOptionType.SingleValue);
+            var annotationsCpu3PathOption = command.Option("-a3|--annotations-cpu3", "Used with debug, a path to a text file containing memory address annotations for interactive debugging (line format: 1234: .... ; Annotation) for CPU3", CommandOptionType.SingleValue);
 
             command.OnExecute(() =>
             {
@@ -111,17 +114,56 @@ namespace JustinCredible.GalagaEmu.CLI
 
                 if (config.Debug)
                 {
-                    if (breakOption.HasValue())
+                    if (breakAllOption.HasValue())
                     {
                         var addresses = new List<UInt16>();
 
-                        foreach (var addressString in breakOption.Values)
+                        foreach (var addressString in breakAllOption.Values)
                         {
                             UInt16 address = Convert.ToUInt16(addressString, 16);
                             addresses.Add(address);
                         }
 
                         config.Breakpoints = addresses;
+                    }
+
+                    if (breakCpu1Option.HasValue())
+                    {
+                        var addresses = new List<UInt16>();
+
+                        foreach (var addressString in breakCpu1Option.Values)
+                        {
+                            UInt16 address = Convert.ToUInt16(addressString, 16);
+                            addresses.Add(address);
+                        }
+
+                        config.BreakpointsCpu1 = addresses;
+                    }
+
+                    if (breakCpu2Option.HasValue())
+                    {
+                        var addresses = new List<UInt16>();
+
+                        foreach (var addressString in breakCpu2Option.Values)
+                        {
+                            UInt16 address = Convert.ToUInt16(addressString, 16);
+                            addresses.Add(address);
+                        }
+
+                        config.BreakpointsCpu2 = addresses;
+                    }
+
+                    if (breakCpu3Option.HasValue())
+                    {
+                        var addresses = new List<UInt16>();
+
+                        foreach (var addressString in breakCpu3Option.Values)
+                        {
+                            UInt16 address = Convert.ToUInt16(addressString, 16);
+                            addresses.Add(address);
+                        }
+
+                        config.BreakpointsCpu3 = addresses;
                     }
 
                     config.ReverseStep = reverseStepOption.HasValue();

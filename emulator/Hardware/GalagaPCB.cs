@@ -46,7 +46,7 @@ namespace JustinCredible.GalagaEmu
         // private AudioSampleEventArgs _audioSampleEventArgs = new AudioSampleEventArgs();
 
         // Fired when a breakpoint is hit and the CPU is paused (only when Debug = true).
-        public delegate void BreakpointHitEvent();
+        public delegate void BreakpointHitEvent(CPUIdentifier? cpuID);
         public event BreakpointHitEvent OnBreakpointHitEvent;
 
         #endregion
@@ -129,9 +129,7 @@ namespace JustinCredible.GalagaEmu
          * interactive debugging via the console.
          */
         public List<UInt16> BreakAtAddresses { get; set; } = new List<ushort>();
-
-        // TODO: Add proper support to the CLI and debugger for these.
-        public List<UInt16> BreakAtAddressesCPU1 { get; set; } = new List<ushort>() { 0x0066, 0x0038 };
+        public List<UInt16> BreakAtAddressesCPU1 { get; set; } = new List<ushort>();
         public List<UInt16> BreakAtAddressesCPU2 { get; set; } = new List<ushort>();
         public List<UInt16> BreakAtAddressesCPU3 { get; set; } = new List<ushort>();
 
@@ -180,9 +178,6 @@ namespace JustinCredible.GalagaEmu
 
             if (romData == null || romData.Data == null || romData.Data.Count == 0)
                 throw new Exception("romData is required.");
-
-            if (ROMSet != ROMSet.GalagaNamcoRevB)
-                throw new ArgumentException($"Unexpected ROM set: {ROMSet}");
 
             // The initial configuration of the CPUs.
 
@@ -258,12 +253,12 @@ namespace JustinCredible.GalagaEmu
             // Fetch and load the ROM data; each CPU has 64KB of address space and the ROMs are mapped in to
             // each starting at address zero. CPU1 has 16KB of ROM, while CPU2/3 have 4KB.
 
-            var cpu1CodeRom1 = romData.Data[ROMs.NAMCO_REV_B_CPU1_CODE1.FileName];
-            var cpu1CodeRom2 = romData.Data[ROMs.NAMCO_REV_B_CPU1_CODE2.FileName];
-            var cpu1CodeRom3 = romData.Data[ROMs.NAMCO_REV_B_CPU1_CODE3.FileName];
-            var cpu1CodeRom4 = romData.Data[ROMs.NAMCO_REV_B_CPU1_CODE4.FileName];
-            var cpu2CodeRom = romData.Data[ROMs.NAMCO_REV_B_CPU2_CODE.FileName];
-            var cpu3CodeRom = romData.Data[ROMs.NAMCO_REV_B_CPU3_CODE.FileName];
+            var cpu1CodeRom1 = romData.Data[ROMIdentifier.CPU1_CODE1];
+            var cpu1CodeRom2 = romData.Data[ROMIdentifier.CPU1_CODE2];
+            var cpu1CodeRom3 = romData.Data[ROMIdentifier.CPU1_CODE3];
+            var cpu1CodeRom4 = romData.Data[ROMIdentifier.CPU1_CODE4];
+            var cpu2CodeRom = romData.Data[ROMIdentifier.CPU2_CODE];
+            var cpu3CodeRom = romData.Data[ROMIdentifier.CPU3_CODE];
 
             _cpu1Rom = new byte[(cpu1CodeRom1.Length + cpu1CodeRom2.Length + cpu1CodeRom3.Length + cpu1CodeRom4.Length)];
             _cpu2Rom = new byte[cpu2CodeRom.Length];
@@ -345,7 +340,7 @@ namespace JustinCredible.GalagaEmu
          * Used to stop CPU execution and enable single stepping through opcodes via the interactive
          * debugger (only when Debug = true).
          */
-        public void Break()
+        public void Break(CPUIdentifier? cpuThatTriggeredBreak = CPUIdentifier.CPU1_MainController)
         {
             if (!Debug)
                 return;
@@ -359,7 +354,7 @@ namespace JustinCredible.GalagaEmu
             if (OnBreakpointHitEvent != null)
             {
                 _isWaitingForInteractiveDebugger = true;
-                OnBreakpointHitEvent.Invoke();
+                OnBreakpointHitEvent.Invoke(cpuThatTriggeredBreak);
             }
         }
 
@@ -502,21 +497,14 @@ namespace JustinCredible.GalagaEmu
             {
                 // 8 Bytes: DIP Switches ("bosco_dsw_r")
                 // TODO: Implement DIP switch settings: http://www.arcaderestoration.com/gamedips/3291/All/Galaga.aspx
-                switch (address)
-                {
-                    case 0x6801:
-                        return 0x00; // TODO: DIP Switch A ?
-                    case 0x6802:
-                        return 0x00; // TODO: DIP Switch B ?
-                    default:
-                        // TODO: Seeing a read by CPU2 for 0x6804 which I wasn't expecting...
-                        // "Read from bosco_dsw_r range 0x6800 - 0x6807 (0x6804) for CPU2; returning 0x00"
-                        //throw new NotImplementedException(String.Format("Read from bosco_dsw_r range 0x6800 - 0x6807 (0x{0:X4}) for CPU{1} is not implemented", address, (int)cpuID));
-                        #if DEBUG
-                        Console.WriteLine(String.Format("Read from bosco_dsw_r range 0x6800 - 0x6807 (0x{0:X4}) for CPU{1}; returning 0x00", address, (int)cpuID));
-                        #endif
-                        return 0x00;
-                }
+                // There are two DIP switch banks (A and B); each has 8 switches.
+                // Each address indicates a switch A and B pair; e.g. 0x6800 => SWA 1 and SWB 1, 0x6804 => SWA 5 and SWB 5.
+                // For the return value, bit 0 is for SWB and bit 1 is for SWA.
+                // NOTE: A zero indcates the switch is ON and a 1 indicates it is OFF (???)
+                if (address == 0x6804)
+                    return 0b00000010; // SWB 5: Freeze: Off
+                else
+                    return 0x00;
             }
             else if (address >= 0x7000 && address <= 0x7100)
             {
@@ -616,6 +604,8 @@ namespace JustinCredible.GalagaEmu
             }
             else if (address >= 0x6820 && address <= 0x6827)
             {
+                var flag = (value & 0x01) == 0x01;
+
                 // 8 Bytes: Latches ("bosco_latch_w").
                 switch (address)
                 {
@@ -625,7 +615,7 @@ namespace JustinCredible.GalagaEmu
                         #if DEBUG
                         Console.WriteLine(String.Format("'IRQ1: main CPU (CPU1) irq enable/acknowledge' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
                         #endif
-                        _cpu1.InterruptsEnabled = true;
+                        _cpu1.InterruptsEnabled = flag ? true : false;
                         break;
                     case 0x6821:
                         // IRQ2: motion CPU (CPU2) irq enable/acknowledge
@@ -633,7 +623,7 @@ namespace JustinCredible.GalagaEmu
                         #if DEBUG
                         Console.WriteLine(String.Format("'IRQ2: motion CPU (CPU2) irq enable/acknowledge' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
                         #endif
-                        _cpu2.InterruptsEnabled = true;
+                        _cpu2.InterruptsEnabled = flag ? true : false;
                         break;
                     case 0x6822:
                         // NMION: sound CPU (CPU3) nmi enable
@@ -641,7 +631,7 @@ namespace JustinCredible.GalagaEmu
                         #if DEBUG
                         Console.WriteLine(String.Format("'NMION: sound CPU (CPU3) nmi enable' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
                         #endif
-                        _cpu3.InterruptsEnabled = true;
+                        _cpu3.InterruptsEnabled = flag ? true : false;
                         break;
                     case 0x6823:
                         // RESET: reset sub and sound CPU, and 5xXX chips on CPU board
@@ -924,6 +914,8 @@ namespace JustinCredible.GalagaEmu
 
             // See if we need to break based on a given address.
 
+            var cpuThatTriggeredBreakpoint = CPUIdentifier.CPU1_MainController;
+
             // First check the shared breakpoint list.
 
             if (BreakAtAddresses.Contains(_cpu1.Registers.PC))
@@ -932,6 +924,7 @@ namespace JustinCredible.GalagaEmu
                 Console.WriteLine(String.Format("Shared breakpoint list: PC for CPU1 is 0x{0:X4}; requesting single step.", _cpu1.Registers.PC));
                 #endif
                 _singleStepping = true;
+                cpuThatTriggeredBreakpoint = CPUIdentifier.CPU1_MainController;
             }
 
             if (BreakAtAddresses.Contains(_cpu2.Registers.PC))
@@ -940,6 +933,7 @@ namespace JustinCredible.GalagaEmu
                 Console.WriteLine(String.Format("Shared breakpoint list: PC for CPU2 is 0x{0:X4}; requesting single step.", _cpu2.Registers.PC));
                 #endif
                 _singleStepping = true;
+                cpuThatTriggeredBreakpoint = CPUIdentifier.CPU2_GameHelper;
             }
 
             if (BreakAtAddresses.Contains(_cpu3.Registers.PC))
@@ -948,6 +942,7 @@ namespace JustinCredible.GalagaEmu
                 Console.WriteLine(String.Format("Shared breakpoint list: PC for CPU3 is 0x{0:X4}; requesting single step.", _cpu3.Registers.PC));
                 #endif
                 _singleStepping = true;
+                cpuThatTriggeredBreakpoint = CPUIdentifier.CPU3_SoundProcessor;
             }
 
             // Next check the breakpoint list specific to each CPU.
@@ -959,6 +954,7 @@ namespace JustinCredible.GalagaEmu
                 Console.WriteLine(String.Format("CPU1 breakpoint list: PC for CPU1 is 0x{0:X4}; requesting single step.", _cpu1.Registers.PC));
                 #endif
                 _singleStepping = true;
+                cpuThatTriggeredBreakpoint = CPUIdentifier.CPU1_MainController;
             }
 
             if (BreakAtAddressesCPU2.Contains(_cpu2.Registers.PC))
@@ -967,6 +963,7 @@ namespace JustinCredible.GalagaEmu
                 Console.WriteLine(String.Format("CPU2 breakpoint list: PC for CPU2 is 0x{0:X4}; requesting single step.", _cpu2.Registers.PC));
                 #endif
                 _singleStepping = true;
+                cpuThatTriggeredBreakpoint = CPUIdentifier.CPU2_GameHelper;
             }
 
             if (BreakAtAddressesCPU3.Contains(_cpu3.Registers.PC))
@@ -975,12 +972,13 @@ namespace JustinCredible.GalagaEmu
                 Console.WriteLine(String.Format("CPU3 breakpoint list: PC for CPU3 is 0x{0:X4}; requesting single step.", _cpu3.Registers.PC));
                 #endif
                 _singleStepping = true;
+                cpuThatTriggeredBreakpoint = CPUIdentifier.CPU3_SoundProcessor;
             }
 
             // If we need to break, print out the CPU state and wait for a keypress.
             if (_singleStepping)
             {
-                Break();
+                Break(cpuThatTriggeredBreakpoint);
                 return;
             }
         }

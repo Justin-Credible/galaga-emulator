@@ -90,10 +90,14 @@ namespace JustinCredible.GalagaEmu
          * Used to start the interactive debugger session with the given game PCB state.
          * This enables the user to enter commands (continue, step, etc) and examine CPU state etc.
          */
-        public void StartInteractiveDebugger(GalagaPCB pcb)
+        public void StartInteractiveDebugger(GalagaPCB pcb, CPUIdentifier? cpuID = null)
         {
             _debuggerPcb = pcb;
             _debuggerState = DebuggerState.Breakpoint;
+
+            if (cpuID.HasValue)
+                _debuggerCPU = cpuID.Value;
+
             SignalDebuggerNeedsRendering();
         }
 
