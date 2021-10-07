@@ -53,8 +53,8 @@ namespace JustinCredible.Z80Disassembler
             if (opcode.Size == 2)
             {
                 var next = rom.Read(address + 1);
-                var dataFormatted = String.Format("0x{0:X2}", next);
-                disassembly.Replace("D8", dataFormatted);
+                var dataFormatted = String.Format(" 0x{0:X2}", next);
+                disassembly.Replace(" D8", dataFormatted);
             }
             else if (opcode.Size == 3)
             {
@@ -62,10 +62,10 @@ namespace JustinCredible.Z80Disassembler
                 var lower = rom.Read(address + 1);
                 var dataOrAddress = (UInt16)(upper | lower);
 
-                var dataOrAddressFormatted = String.Format("0x{0:X4}", dataOrAddress);
+                var dataOrAddressFormatted = String.Format(" 0x{0:X4}", dataOrAddress);
 
-                disassembly.Replace("D16", dataOrAddressFormatted);
-                disassembly.Replace("adr", dataOrAddressFormatted);
+                disassembly.Replace(" D16", dataOrAddressFormatted);
+                disassembly.Replace(" adr", dataOrAddressFormatted);
             }
             else if (opcode.Size == 4)
             {
