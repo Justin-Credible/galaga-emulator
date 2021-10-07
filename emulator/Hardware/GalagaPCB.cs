@@ -605,13 +605,11 @@ namespace JustinCredible.GalagaEmu
                 // 32 Bytes for Audio I/O: Waveform Sound Generator (WSG)
                 // TODO: Is this the same as the WSG3 used in Pac-Man?
                 #if DEBUG
-                Console.WriteLine(String.Format("Write to Audio I/O range 0x6800 - 0x681E (0x{0:X4}) for CPU{2} with value 0x{1:X2}", address, value, (int)cpuID));
+                // Console.WriteLine(String.Format("Write to Audio I/O range 0x6800 - 0x681E (0x{0:X4}) for CPU{2} with value 0x{1:X2}", address, value, (int)cpuID));
                 #endif
             }
             else if (address >= 0x6820 && address <= 0x6827)
             {
-                var flag = (value & 0x01) == 0x01;
-
                 // 8 Bytes: Latches ("bosco_latch_w").
                 switch (address)
                 {
@@ -621,7 +619,7 @@ namespace JustinCredible.GalagaEmu
                         #if DEBUG
                         Console.WriteLine(String.Format("'IRQ1: main CPU (CPU1) irq enable/acknowledge' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
                         #endif
-                        _cpu1.InterruptsEnabled = flag ? true : false;
+                        _cpu1.InterruptsEnabled = value != 0;
                         break;
                     case 0x6821:
                         // IRQ2: motion CPU (CPU2) irq enable/acknowledge
@@ -629,15 +627,15 @@ namespace JustinCredible.GalagaEmu
                         #if DEBUG
                         Console.WriteLine(String.Format("'IRQ2: motion CPU (CPU2) irq enable/acknowledge' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
                         #endif
-                        _cpu2.InterruptsEnabled = flag ? true : false;
+                        _cpu2.InterruptsEnabled = value != 0;
                         break;
                     case 0x6822:
                         // NMION: sound CPU (CPU3) nmi enable
                         // TODO
                         #if DEBUG
-                        Console.WriteLine(String.Format("'NMION: sound CPU (CPU3) nmi enable' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
+                        // Console.WriteLine(String.Format("'NMION: sound CPU (CPU3) nmi enable' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
                         #endif
-                        _cpu3.InterruptsEnabled = flag ? true : false;
+                        _cpu3.InterruptsEnabled = value == 0;
                         break;
                     case 0x6823:
                         // RESET: reset sub and sound CPU, and 5xXX chips on CPU board
@@ -854,6 +852,20 @@ namespace JustinCredible.GalagaEmu
                 // TODO: Technically this should be last write data for CPU2's port 0 write, but
                 // since Galaga is not using interrupt modes zero or two, I don't think it matters.
                 _cpu2.StepMaskableInterrupt(0x00);
+            }
+
+            // If interrupts are enabled, then handle them, otherwise do nothing.
+            if (_cpu3.InterruptsEnabled)
+            {
+                // If we're going to run an interrupt handler, ensure interrupts are disabled.
+                // This ensures we don't interrupt the interrupt handler. The program ROM will
+                // re-enable the interrupts manually.
+                _cpu3.InterruptsEnabled = false;
+
+                // Execute the handler for the interrupt.
+                // TODO: Technically this should be last write data for CPU3's port 0 write, but
+                // since Galaga is not using interrupt modes zero or two, I don't think it matters.
+                _cpu3.StepNonMaskableInterrupt();
             }
 
             // Reset the count so we can count up again.
