@@ -64,6 +64,9 @@ namespace JustinCredible.GalagaEmu
         internal CPU _cpu2; // Game Helper
         internal CPU _cpu3; // Sound Processor
 
+        private bool _haltCpu2 = false;
+        private bool _haltCpu3 = false;
+
         // private VideoHardware _video; // TODO
         // private AudioHardware _audio; // TODO
         public DIPSwitches DIPSwitchState { get; set; } = new DIPSwitches();
@@ -519,7 +522,9 @@ namespace JustinCredible.GalagaEmu
                 #if DEBUG
                 Console.WriteLine(String.Format("Read from 06xx Bus interface range 0x7000 - 0x7100 (0x{0:X4}) for CPU{1}; returning 0x00", address, (int)cpuID));
                 #endif
-                return 0x00;
+                //return 0x00;
+                // HACK: CPU1 waits for the IO processor to complete with status 0x10
+                return 0x10;
             }
             else if (address >= 0x8000 && address <= 0x87FF)
             {
@@ -639,10 +644,10 @@ namespace JustinCredible.GalagaEmu
                         break;
                     case 0x6823:
                         // RESET: reset sub and sound CPU, and 5xXX chips on CPU board
-                        // TODO
-                        #if DEBUG
-                        Console.WriteLine(String.Format("'RESET: reset sub and sound CPU, and 5xXX chips on CPU board' write at address 0x{0:X4} with value for CPU{2}: 0x{1:X2}", address, value, (int)cpuID));
-                        #endif
+                        // NOTE: Disassembly says "Halt CPUs 2 and 3" when loading with zero @ $336D?
+                        // I'm assuming 0 means halt and non-zero means un-halt; this seems to get past initialization.
+                        _haltCpu2 = value == 0;
+                        _haltCpu3 = value == 0;
                         break;
                     default:
                         // 0x6824 n.c.
@@ -753,9 +758,18 @@ namespace JustinCredible.GalagaEmu
                     // Step the CPU to execute the next instruction.
                     // TODO: Since I'm only looking at cycles on CPU1, the other CPUs may not be
                     // throttled properly. I'm hoping this won't matter and it will be "good enough".
+
                     var cycles = _cpu1.Step();
-                    _cpu2.Step();
-                    _cpu3.Step();
+
+                    if (!_haltCpu2)
+                    {
+                        _cpu2.Step();
+                    }
+
+                    if (!_haltCpu3)
+                    {
+                        _cpu3.Step();
+                    }
 
                     // Keep track of the number of cycles to see if we need to throttle the CPU.
                     _cycleCount += cycles;
@@ -843,6 +857,10 @@ namespace JustinCredible.GalagaEmu
             // If interrupts are enabled, then handle them, otherwise do nothing.
             if (_cpu2.InterruptsEnabled)
             {
+                // If an interrupt is fired, then the CPU will need to resume if it was halted
+                // in order to execute the interrupt handler.
+                _haltCpu2 = false;
+
                 // If we're going to run an interrupt handler, ensure interrupts are disabled.
                 // This ensures we don't interrupt the interrupt handler. The program ROM will
                 // re-enable the interrupts manually.
@@ -857,6 +875,10 @@ namespace JustinCredible.GalagaEmu
             // If interrupts are enabled, then handle them, otherwise do nothing.
             if (_cpu3.InterruptsEnabled)
             {
+                // If an interrupt is fired, then the CPU will need to resume if it was halted
+                // in order to execute the interrupt handler.
+                _haltCpu3 = false;
+
                 // If we're going to run an interrupt handler, ensure interrupts are disabled.
                 // This ensures we don't interrupt the interrupt handler. The program ROM will
                 // re-enable the interrupts manually.

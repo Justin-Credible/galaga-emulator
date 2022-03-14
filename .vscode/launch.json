@@ -13,21 +13,39 @@
             "program": "${workspaceFolder}/emulator.cli/bin/Debug/netcoreapp3.1/emulator.cli.dll",
             "args": [
                 "run",
-                "${workspaceFolder}/roms/galaga",
+                "${workspaceFolder}/roms/galagao",
                 "--rom-set",
-                "galaga",
-                // "--debug",
-                // "--annotations-cpu1",
-                // "${workspaceFolder}/roms/galaga-cpu1.asm",
-                // "--annotations-cpu2",
-                // "${workspaceFolder}/roms/galaga-cpu2.asm",
-                // "--annotations-cpu3",
-                // "${workspaceFolder}/roms/galaga-cpu3.asm",
+                "galagao",
+                "--debug",
+                "--annotations-cpu1",
+                "${workspaceFolder}/roms/disassembly/galagao-cpu1.asm",
+                "--annotations-cpu2",
+                "${workspaceFolder}/roms/disassembly/galagao-cpu2.asm",
+                "--annotations-cpu3",
+                "${workspaceFolder}/roms/disassembly/galagao-cpu3.asm",
                 // "--reverse-step",
                 // "--load-state",
                 // "--skip-checksums",
-                // "--break",
-                // "0x0000",
+
+                // "--break", "0x0000",
+
+                // "--break-cpu1", "0x0000",
+                // "--break-cpu1", "0x0038", // InterruptMode 1 - 7th reset vector
+                // "--break-cpu1", "0x336C", // "initialization comes here" halt cpu2/3??
+                // "--break-cpu1", "0x3599", // Wait for CPU3
+                "--break-cpu1", "0x359B", // Got past waiting for CPU 3
+                // "--break-cpu1", "0x3535", // Display ROM error report
+                "--break-cpu1", "0x331B", // subroutine for display message on screen
+
+                // "--break-cpu2", "0x051F", // CPU2 executing code if freeze dip switch is off
+
+                // "--break-cpu3", "0x0000",
+                // "--break-cpu3", "0x0066", // CPU3 NMI handler
+                // "--break-cpu3", "0x00B1", // CPU3 NMI handler calls this to handle the request
+                // "--break-cpu3", "0x008B", // after 1000 byte checksum loop
+                // "--break-cpu3", "0x0092", // wait for ack from CPU1 wait loop
+                // "--break-cpu3", "0x0096", // recv ack from CPU1, done with wait loop
+                // "--break-cpu3", "0x00A7", // After LDIR copy a bunch of data, jump backwards forever? Tight loop while processing interrupts
             ],
             "cwd": "${workspaceFolder}/emulator.cli",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
