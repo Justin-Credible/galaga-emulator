@@ -235,11 +235,11 @@ namespace JustinCredible.GalagaEmu
 
             for (var i = 0x040; i <= 0x3BF; i++)
             {
-                var tileAddress = 0x4000 + i;
-                var paletteAddress = 0x4400 + i;
+                var tileAddress = 0x8000 + i;
+                var paletteAddress = 0x8400 + i;
 
-                var tileIndex = memory.Read(tileAddress);
-                var paletteIndex = memory.Read(paletteAddress) & 0x7F; // MSB isn't used?
+                var tileIndex = memory.Read(tileAddress) & 0x7F; // MSB isn't used?
+                var paletteIndex = memory.Read(paletteAddress) & 0x3F; // MSB isn't used?
 
                 var tile = _tileRenderer.RenderTile(tileIndex, paletteIndex);
 
@@ -277,11 +277,11 @@ namespace JustinCredible.GalagaEmu
 
             for (var i = 0x3DF; i >= 0x3C0; i--)
             {
-                var tileAddress = 0x4000 + i;
-                var paletteAddress = 0x4400 + i;
+                var tileAddress = 0x8000 + i;
+                var paletteAddress = 0x8400 + i;
 
-                var tileIndex = memory.Read(tileAddress);
-                var paletteIndex = memory.Read(paletteAddress) & 0x7F; // MSB isn't used?
+                var tileIndex = memory.Read(tileAddress) & 0x7F; // MSB isn't used?
+                var paletteIndex = memory.Read(paletteAddress) & 0x3F; // MSB isn't used?
 
                 var tile = _tileRenderer.RenderTile(tileIndex, paletteIndex);
 
@@ -304,11 +304,11 @@ namespace JustinCredible.GalagaEmu
 
             for (var i = 0x3FF; i >= 0x3E0; i--)
             {
-                var tileAddress = 0x4000 + i;
-                var paletteAddress = 0x4400 + i;
+                var tileAddress = 0x8000 + i;
+                var paletteAddress = 0x8400 + i;
 
-                var tileIndex = memory.Read(tileAddress);
-                var paletteIndex = memory.Read(paletteAddress) & 0x7F; // MSB isn't used?
+                var tileIndex = memory.Read(tileAddress) & 0x7F; // MSB isn't used?
+                var paletteIndex = memory.Read(paletteAddress) & 0x3F; // MSB isn't used?
 
                 var tile = _tileRenderer.RenderTile(tileIndex, paletteIndex);
 
@@ -335,11 +335,11 @@ namespace JustinCredible.GalagaEmu
 
             for (var i = 0x01F; i >= 0x000; i--)
             {
-                var tileAddress = 0x4000 + i;
-                var paletteAddress = 0x4400 + i;
+                var tileAddress = 0x8000 + i;
+                var paletteAddress = 0x8400 + i;
 
-                var tileIndex = memory.Read(tileAddress);
-                var paletteIndex = memory.Read(paletteAddress) & 0x7F; // MSB isn't used?
+                var tileIndex = memory.Read(tileAddress) & 0x7F; // MSB isn't used?
+                var paletteIndex = memory.Read(paletteAddress) & 0x3F; // MSB isn't used?
 
                 var tile = _tileRenderer.RenderTile(tileIndex, paletteIndex);
 
@@ -362,11 +362,11 @@ namespace JustinCredible.GalagaEmu
 
             for (var i = 0x03F; i >= 0x020; i--)
             {
-                var tileAddress = 0x4000 + i;
-                var paletteAddress = 0x4400 + i;
+                var tileAddress = 0x8000 + i;
+                var paletteAddress = 0x8400 + i;
 
-                var tileIndex = memory.Read(tileAddress);
-                var paletteIndex = memory.Read(paletteAddress) & 0x7F; // MSB isn't used?
+                var tileIndex = memory.Read(tileAddress) & 0x7F; // MSB isn't used?
+                var paletteIndex = memory.Read(paletteAddress) & 0x3F; // MSB isn't used?
 
                 var tile = _tileRenderer.RenderTile(tileIndex, paletteIndex);
 

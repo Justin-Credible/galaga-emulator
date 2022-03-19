@@ -67,7 +67,7 @@ namespace JustinCredible.GalagaEmu
         private bool _haltCpu2 = false;
         private bool _haltCpu3 = false;
 
-        // private VideoHardware _video; // TODO
+        private VideoHardware _video;
         // private AudioHardware _audio; // TODO
         public DIPSwitches DIPSwitchState { get; set; } = new DIPSwitches();
         public Buttons ButtonState { get; set; } = new Buttons();
@@ -280,9 +280,9 @@ namespace JustinCredible.GalagaEmu
             _cpu2.Memory = new MemoryMapper(CPUIdentifier.CPU2_GameHelper, this);
             _cpu3.Memory = new MemoryMapper(CPUIdentifier.CPU3_SoundProcessor, this);
 
-            // Initialize video hardware. // TODO
-            // _video = new VideoHardware(romData, ROMSet);
-            // _video.Initialize();
+            // Initialize video hardware.
+            _video = new VideoHardware(romData, ROMSet);
+            _video.Initialize();
 
             // Initialize audio hardware. // TODO
             // _audio = new AudioHardware(romData, ROMSet);
@@ -898,9 +898,8 @@ namespace JustinCredible.GalagaEmu
 
         private void HandleRenderVideoFrame()
         {
-            /* TODO: Video hardware.
             // Render the screen into an image.
-            var image = _video.Render(this, _spriteCoordinates, _flipScreen);
+            var image = _video.Render(_cpu1.Memory, null, false);
 
             // Convert the image into a bitmap format.
 
@@ -915,7 +914,6 @@ namespace JustinCredible.GalagaEmu
             // Delegate to the render event, passing the framebuffer to be rendered.
             _renderEventArgs.FrameBuffer = bitmap;
             OnRender?.Invoke(_renderEventArgs);
-            */
         }
 
         private void HandleRenderAudioSamples()

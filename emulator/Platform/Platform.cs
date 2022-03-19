@@ -34,9 +34,8 @@ namespace JustinCredible.GalagaEmu
         {
             x = 0,
             y = 0,
-            // TODO: Move dimensions into constants when implementing the VideoHardware class.
-            w = 288 /*VideoHardware.RESOLUTION_WIDTH*/,
-            h = 224 /*VideoHardware.RESOLUTION_HEIGHT*/,
+            w = VideoHardware.RESOLUTION_WIDTH,
+            h = VideoHardware.RESOLUTION_HEIGHT,
         };
 
         // Indicates if the toggle switch for the board's test mode is switched on or not.

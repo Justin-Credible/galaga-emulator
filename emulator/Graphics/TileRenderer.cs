@@ -58,6 +58,19 @@ namespace JustinCredible.GalagaEmu
             if (tile != null)
                 return tile;
 
+            // The tiles 128-256 seem to be vertically mirrored versions of teh same tiles
+            // 0-127. Rather than adjust the render algorithm we'll just render as normal
+            // and then mirror the result at the end. I verified this matches MAME's sprite
+            // viewer output.
+
+            var shouldMirrorVertically = false;
+
+            if (tileIndex >= 128)
+            {
+                shouldMirrorVertically = true;
+                tileIndex = tileIndex - 128;
+            }
+
             var palette = _palettes[paletteIndex];
 
             // See: Chris Lomont's Pac-Man Emulation Guide v0.1, page 6.
@@ -127,6 +140,24 @@ namespace JustinCredible.GalagaEmu
                     // Next column.
                     originX++;
                 }
+            }
+
+            // Mirror the tile if necessary.
+            if (shouldMirrorVertically)
+            {
+                var mirroredTile = new Image<Rgba32>(8, 8);
+
+                for (var y = 0; y < 8; y++)
+                {
+                    for (var x = 0; x < 8; x++)
+                    {
+                        var pixel = tile[x,y];
+                        mirroredTile[x, 7 - y] = pixel;
+                    }
+                }
+
+
+                tile = mirroredTile; 
             }
 
             return tile;

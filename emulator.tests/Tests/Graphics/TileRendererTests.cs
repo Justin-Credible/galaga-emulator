@@ -9,10 +9,10 @@ namespace JustinCredible.GalagaEmu.Tests
 {
     public class TileRendererTests
     {
-        // [Theory]
-        // [InlineData(1, "render-all-tiles-palette-1.bmp")]
-        // [InlineData(2, "render-all-tiles-palette-2.bmp")]
-        // [InlineData(8, "render-all-tiles-palette-8.bmp")]
+        [Theory]
+        [InlineData(1, "render-all-tiles-palette-1.bmp")]
+        [InlineData(2, "render-all-tiles-palette-2.bmp")]
+        [InlineData(8, "render-all-tiles-palette-8.bmp")]
         public void TestRenderTileRendersAllTiles(int paletteIndex, string fileToCompare)
         {
             var romData = new ROMData();
@@ -31,7 +31,7 @@ namespace JustinCredible.GalagaEmu.Tests
 
             // The width in pixels between each tile; set to 1 to match MAME's palette tool from which
             // the reference screenshots are taken. The background color also matches MAME's UI.
-            var borderPixels = 1;
+            var borderPixels = 0;//1;
             var bgColor = new Rgba32(15, 15, 39);
 
             // There are 256 tiles, so we can render a grid of 16x16 tiles.
