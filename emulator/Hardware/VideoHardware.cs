@@ -13,8 +13,10 @@ namespace JustinCredible.GalagaEmu
      */
     public class VideoHardware
     {
-        internal const int RESOLUTION_WIDTH = 288;
-        internal const int RESOLUTION_HEIGHT = 224;
+        // HACK: Adjusted resolution to prevent out of range exception.
+        // TODO: Determine why it goes out of range (probably because using Pac-Man specific tile coordinates for header?)
+        internal const int RESOLUTION_WIDTH = 300;//288;
+        internal const int RESOLUTION_HEIGHT = 300;//224;
 
         private ROMSet _romset = ROMSet.GalagaNamcoRevB;
 
